@@ -2,12 +2,18 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#007D8F">
 <title>بطاقات حسابات الطلاب — Qubits LMS | مدارس دار الفرسان</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@500;600;700&family=Tajawal:wght@400;500;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
+  /* ---- cross-device base (Android / iOS / Windows) ---- */
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; overflow-x:clip; }
+  body{ overflow-x:clip; -webkit-tap-highlight-color:transparent; }
+  button, a, select{ touch-action:manipulation; }
   :root{
     --teal:#007D8F; --teal-dark:#004650; --teal-deep:#00343C;
     --purple:#802980; --purple-dip:#6C279E; --navy:#283373;
@@ -94,6 +100,10 @@
   .gate-icons{ display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:14px; }
   .gate-icons img{ height:24px; width:auto; }
   .gate-box h2{ margin:0 0 3px; font-size:19px; color:var(--teal-dark); font-weight:700; }
+  .gate-about{ margin:0 0 16px; padding:11px 13px; border:1px solid var(--teal); border-inline-start:4px solid var(--purple); border-radius:8px; background:rgba(0,125,143,.06); text-align:start; }
+  .gate-about-ar{ font-family:'Tajawal',sans-serif; font-size:12.5px; line-height:1.7; color:var(--ink); }
+  .gate-about-ar b{ color:var(--purple); }
+  .gate-about-en{ margin-top:4px; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:12px; line-height:1.5; color:var(--muted); }
   .gate-sub{ margin:0 0 16px; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:12px; color:var(--muted); }
   .gate-box label{ display:block; text-align:start; font-family:'Tajawal',sans-serif; font-size:11.5px; color:var(--ink); margin:12px 0 5px; font-weight:600; }
   .gate-box input{
@@ -235,6 +245,25 @@
     .copy-btn{ display:none; }
     .creds-link a{ text-decoration:none; }
   }
+  /* gate: scrollable on short screens (landscape, small phones) */
+  .gate-overlay{ overflow-y:auto; -webkit-overflow-scrolling:touch; align-items:flex-start;
+    padding:max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .gate-box{ margin:auto; }
+  /* touch devices: 16px inputs stop iOS auto-zoom; 44px touch targets */
+  @media (pointer:coarse){
+    .gate-box select, .gate-box input, .gate-box textarea{ font-size:16px; min-height:44px; }
+    .gate-btn, .gate-request-btn, .gate-link-btn, .print-btn, .logout-btn{ min-height:44px; }
+  }
+  /* narrow phones: scale the fixed-size card grid so it never overflows */
+  @media (max-width:359px){ .card-grid{ zoom:.84; } }
+  @media (max-width:340px){ .card-grid{ zoom:.78; } }
+  header.site-header, header.toolbar{ padding-left:max(0px, env(safe-area-inset-left)); padding-right:max(0px, env(safe-area-inset-right)); }
+  @media (max-width:600px){
+    header.toolbar{ padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
+    header.toolbar .print-btn, header.toolbar .logout-btn{ width:100%; }
+    .qubits-info{ flex-direction:column; align-items:flex-start; padding:14px 16px; gap:10px; }
+    main, .wrap{ padding-left:16px; padding-right:16px; }
+  }
 </style>
 </head>
 <body>
@@ -261,6 +290,11 @@
     </div>
     <h2>استعلام بطاقة حساب الطالب</h2>
     <div class="gate-sub">Student Account Card Lookup — Qubits LMS · Dar Al-Forsan Schools</div>
+
+    <div class="gate-about">
+      <div class="gate-about-ar" dir="rtl"><b>Qubits LMS</b> منصة تعلّم رقمي لمدارس دار الفرسان (الصفوف 3–10) تدعم علوم الحاسوب والذكاء الاصطناعي والروبوتكس والفن الرقمي، للعام الدراسي 2026–2027.</div>
+      <div class="gate-about-en" dir="ltr"><b>Qubits LMS</b> is a digital learning platform for Dar Al-Forsan Schools (Grades 3–10), supporting Computer Science, AI, Robotics, and Digital Art, academic year 2026–2027.</div>
+    </div>
 
     <div id="studentPane">
       <label for="gradeSelect">اختر الصف · Select Grade</label>
@@ -650,7 +684,7 @@ async function handleAdminSubmit(){
 
 document.getElementById('adminSubmit').addEventListener('click', handleAdminSubmit);
 document.getElementById('adminPass').addEventListener('keydown', e=>{ if(e.key === 'Enter') handleAdminSubmit(); });
-gradeSelect.focus();
+if(!window.matchMedia("(pointer:coarse)").matches) gradeSelect.focus();
 </script>
 </body>
 </html>

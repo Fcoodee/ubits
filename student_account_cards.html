@@ -589,9 +589,9 @@ function showPane(id){
     document.getElementById(p).style.display = (p===id) ? 'block' : 'none';
   });
 }
+const REQUEST_FORM_URL = 'https://forms.cloud.microsoft/r/4bP70FqaVR';  // Microsoft Forms
 document.getElementById('showRequestPane').addEventListener('click', ()=>{
-  if(gradeSelect.value) document.getElementById('reqGrade').value = gradeSelect.value;
-  showPane('requestPane');
+  window.open(REQUEST_FORM_URL, '_blank', 'noopener');
 });
 document.getElementById('reqBack').addEventListener('click', ()=> showPane('studentPane'));
 document.getElementById('reqSend').addEventListener('click', ()=>{

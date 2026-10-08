@@ -101,7 +101,23 @@
     padding:9px 12px; border-radius:10px; border:1.5px solid var(--line);
     outline:none; text-align:center; letter-spacing:.5px;
   }
-  .gate-box input:focus{ border-color:var(--teal); }
+  .gate-box input:focus, .gate-box select:focus, .gate-box textarea:focus{ border-color:var(--teal); }
+  .gate-box select, .gate-box textarea{
+    width:100%; font-family:'Tajawal',sans-serif; font-size:14px; color:var(--ink);
+    padding:9px 12px; border-radius:10px; border:1.5px solid var(--line);
+    outline:none; background:#fff; text-align:start;
+  }
+  .gate-box select:disabled{ background:#F1F4F4; color:#9AA7A9; cursor:not-allowed; }
+  .gate-box textarea{ resize:vertical; min-height:62px; }
+  .gate-btn:disabled{ background:#9FBFC4; cursor:not-allowed; }
+  .gate-btn-full{ width:100%; margin-top:14px; }
+  .gate-request-btn{
+    width:100%; margin-top:12px; font-family:'Tajawal',sans-serif; font-weight:800; font-size:13px;
+    padding:10px 14px; border-radius:10px; cursor:pointer;
+    background:#fff; color:var(--purple); border:1.5px solid var(--purple);
+  }
+  .gate-request-btn:hover{ background:var(--purple); color:#fff; }
+  .req-note{ font-family:'Tajawal',sans-serif; font-size:11px; color:var(--muted); margin:8px 0 0; line-height:1.6; text-align:start; }
   .gate-row{ display:flex; gap:8px; margin-top:10px; }
   .gate-row input{ flex:1; margin-top:0; }
   .gate-btn{
@@ -247,14 +263,36 @@
     <div class="gate-sub">Student Account Card Lookup — Qubits LMS · Dar Al-Forsan Schools</div>
 
     <div id="studentPane">
-      <label for="codeInput">أدخل رقم الطالب (من #1 إلى #140) · Enter student number (#1–#140)</label>
-      <div class="gate-row">
-        <input id="codeInput" type="text" inputmode="numeric" maxlength="4" placeholder="1" />
-        <button class="gate-btn" id="studentSubmit">استعلام · Look Up</button>
-      </div>
+      <label for="gradeSelect">اختر الصف · Select Grade</label>
+      <select dir="rtl" id="gradeSelect"><option value="">— اختر الصف · Select Grade —</option></select>
+
+      <label for="studentSelect">اختر اسم الطالب · Select Student Name</label>
+      <select dir="rtl" id="studentSelect" disabled><option value="">— اختر الصف أولاً · Select grade first —</option></select>
+
+      <button class="gate-btn gate-btn-full" id="studentSubmit" disabled>عرض بطاقة الحساب · Show Account Card</button>
       <p class="gate-msg" id="studentMsg"></p>
+
+      <button class="gate-request-btn" id="showRequestPane">لم أجد بيانات حسابي .. أرسل طلب<br><span style="font-weight:500;font-size:11px">I can't find my account details .. Send a request</span></button>
+
       <div class="gate-divider"><span>أو · or</span></div>
       <button class="gate-link-btn" id="showAdminPane">دخول إدارة النظام · System Admin Login</button>
+    </div>
+
+    <div id="requestPane" style="display:none">
+      <label for="reqName">اسم الطالب الكامل · Student full name</label>
+      <input id="reqName" type="text" style="text-align:start" autocomplete="off" />
+      <label for="reqGrade">الصف والشعبة · Grade &amp; Section</label>
+      <select dir="rtl" id="reqGrade"></select>
+      <label for="reqContact">رقم تواصل ولي الأمر (اختياري) · Guardian contact (optional)</label>
+      <input id="reqContact" type="text" inputmode="tel" style="text-align:start" autocomplete="off" />
+      <label for="reqNote">ملاحظة (اختياري) · Note (optional)</label>
+      <textarea id="reqNote"></textarea>
+      <div class="gate-row">
+        <button class="gate-btn" id="reqSend">إرسال الطلب · Send Request</button>
+        <button class="gate-link-btn" id="reqBack">رجوع · Back</button>
+      </div>
+      <p class="gate-msg" id="reqMsg"></p>
+      <p class="req-note" id="reqFallback" style="display:none"></p>
     </div>
 
     <div id="adminPane" style="display:none">
@@ -466,7 +504,6 @@ document.getElementById('gradeFilter').addEventListener('change', ()=>{ updateCl
 document.getElementById('classFilter').addEventListener('change', applyFilters);
 
 /* ---------- access gate ---------- */
-const CODE_MIN = 1, CODE_MAX = 140;
 const studentsByUid = {};
 students.forEach(s=>{ studentsByUid[s['UID No']] = s; });
 
@@ -490,36 +527,105 @@ function renderSingleCard(student){
   content.innerHTML = `<div class="grade-block"><div class="card-grid" style="justify-content:center;">${cardHTML(student)}</div></div>`;
 }
 
+/* ---- grade / student dropdown lookup (8A and 8B are separate groups) ---- */
+const REQUEST_EMAIL = '';   // ضع بريد استقبال الطلبات هنا · set the inbox that receives requests
+
+function gradeKey(s){ return s.Grade + s.Class; }
+const gradeKeys = [...new Set(students.map(gradeKey))].sort((a,b)=>{
+  const na = parseInt(a,10), nb = parseInt(b,10);
+  return na - nb || a.localeCompare(b);
+});
+
+function fillGradeOptions(sel, placeholder){
+  sel.innerHTML = placeholder ? `<option value="">${placeholder}</option>` : '';
+  gradeKeys.forEach(k=>{
+    const o = document.createElement('option');
+    o.value = k; o.textContent = `الصف ${k} · Grade ${k}`;
+    sel.appendChild(o);
+  });
+}
+const gradeSelect = document.getElementById('gradeSelect');
+const studentSelect = document.getElementById('studentSelect');
+const studentSubmit = document.getElementById('studentSubmit');
+fillGradeOptions(gradeSelect, '— اختر الصف · Select Grade —');
+fillGradeOptions(document.getElementById('reqGrade'), '');
+
+gradeSelect.addEventListener('change', ()=>{
+  const k = gradeSelect.value;
+  document.getElementById('studentMsg').textContent = '';
+  studentSelect.innerHTML = '';
+  if(!k){
+    studentSelect.innerHTML = '<option value="">— اختر الصف أولاً · Select grade first —</option>';
+    studentSelect.disabled = true; studentSubmit.disabled = true; return;
+  }
+  const list = students.filter(s=>gradeKey(s)===k)
+    .sort((a,b)=>a['Full Name'].localeCompare(b['Full Name']));
+  studentSelect.innerHTML = '<option value="">— اختر اسم الطالب · Select Student Name —</option>';
+  list.forEach(s=>{
+    const o = document.createElement('option');
+    o.value = s['UID No'];
+    o.textContent = s['Full Name'];
+    studentSelect.appendChild(o);
+  });
+  studentSelect.disabled = false; studentSubmit.disabled = true;
+});
+studentSelect.addEventListener('change', ()=>{ studentSubmit.disabled = !studentSelect.value; });
+
 function handleStudentSubmit(){
-  const raw = document.getElementById('codeInput').value.trim().replace('#','');
-  const n = parseInt(raw, 10);
   const msg = document.getElementById('studentMsg');
-  if(!raw || isNaN(n)){
-    msg.textContent = 'الرجاء إدخال رمز صحيح · Please enter a valid code'; msg.className = 'gate-msg err'; return;
-  }
-  if(n < CODE_MIN || n > CODE_MAX){
-    msg.textContent = 'هذا الرقم خارج نطاق الطلاب المسجّلين (#1–#140) · This number is outside the enrolled student range (#1–#140)'; msg.className = 'gate-msg err'; return;
-  }
-  const student = studentsByUid[n];
-  if(!student){
-    msg.textContent = 'لم يتم العثور على حساب بهذا الرمز · No account found with this code'; msg.className = 'gate-msg err'; return;
+  const student = studentsByUid[parseInt(studentSelect.value,10)];
+  if(!gradeSelect.value || !student){
+    msg.textContent = 'الرجاء اختيار الصف واسم الطالب · Please select a grade and a student'; msg.className = 'gate-msg err'; return;
   }
   msg.textContent = 'تم التحقق ✓ · Verified ✓'; msg.className = 'gate-msg ok';
   renderSingleCard(student);
-  setTimeout(()=> showApp('student'), 300);
+  setTimeout(()=> showApp('student'), 250);
 }
+studentSubmit.addEventListener('click', handleStudentSubmit);
 
-document.getElementById('studentSubmit').addEventListener('click', handleStudentSubmit);
-document.getElementById('codeInput').addEventListener('keydown', e=>{ if(e.key === 'Enter') handleStudentSubmit(); });
+/* ---- "I can't find my account" request ---- */
+function showPane(id){
+  ['studentPane','adminPane','requestPane'].forEach(p=>{
+    document.getElementById(p).style.display = (p===id) ? 'block' : 'none';
+  });
+}
+document.getElementById('showRequestPane').addEventListener('click', ()=>{
+  if(gradeSelect.value) document.getElementById('reqGrade').value = gradeSelect.value;
+  showPane('requestPane');
+});
+document.getElementById('reqBack').addEventListener('click', ()=> showPane('studentPane'));
+document.getElementById('reqSend').addEventListener('click', ()=>{
+  const name = document.getElementById('reqName').value.trim();
+  const grade = document.getElementById('reqGrade').value;
+  const contact = document.getElementById('reqContact').value.trim();
+  const note = document.getElementById('reqNote').value.trim();
+  const msg = document.getElementById('reqMsg');
+  const fb = document.getElementById('reqFallback');
+  if(!name){ msg.textContent = 'الرجاء كتابة اسم الطالب · Please enter the student name'; msg.className = 'gate-msg err'; return; }
+  const subject = `طلب بيانات حساب Qubits — ${name} (${grade})`;
+  const body = [
+    'طلب بيانات حساب طالب · Student account request',
+    `الاسم · Name: ${name}`,
+    `الصف · Grade: ${grade}`,
+    contact ? `التواصل · Contact: ${contact}` : '',
+    note ? `ملاحظة · Note: ${note}` : ''
+  ].filter(Boolean).join('\n');
+  if(REQUEST_EMAIL){
+    msg.textContent = 'يتم فتح البريد لإرسال الطلب… · Opening your mail app…'; msg.className = 'gate-msg ok';
+    location.href = `mailto:${REQUEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  } else {
+    // no inbox configured yet: give the family a ready-to-send text
+    (navigator.clipboard ? navigator.clipboard.writeText(body) : Promise.reject()).then(()=>{
+      msg.textContent = 'تم نسخ نص الطلب ✓ أرسله لإدارة المدرسة · Request text copied — please send it to the school';
+      msg.className = 'gate-msg ok';
+    }).catch(()=>{
+      msg.textContent = ''; fb.style.display = 'block'; fb.textContent = body;
+    });
+  }
+});
 
-document.getElementById('showAdminPane').addEventListener('click', ()=>{
-  document.getElementById('studentPane').style.display = 'none';
-  document.getElementById('adminPane').style.display = 'block';
-});
-document.getElementById('backToStudent').addEventListener('click', ()=>{
-  document.getElementById('adminPane').style.display = 'none';
-  document.getElementById('studentPane').style.display = 'block';
-});
+document.getElementById('showAdminPane').addEventListener('click', ()=> showPane('adminPane'));
+document.getElementById('backToStudent').addEventListener('click', ()=> showPane('studentPane'));
 
 async function handleAdminSubmit(){
   const user = document.getElementById('adminUser').value.trim();
@@ -544,7 +650,7 @@ async function handleAdminSubmit(){
 
 document.getElementById('adminSubmit').addEventListener('click', handleAdminSubmit);
 document.getElementById('adminPass').addEventListener('keydown', e=>{ if(e.key === 'Enter') handleAdminSubmit(); });
-document.getElementById('codeInput').focus();
+gradeSelect.focus();
 </script>
 </body>
 </html>
